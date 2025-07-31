@@ -15,3 +15,22 @@ def create_animation():
     """
 
 
+import molviewspec as mvs
+
+# 1. Create a builder
+builder = mvs.create_builder()
+
+# 2. Download and parse the structure from PDB (mmCIF format)
+structure = builder.download(url="https://files.rcsb.org/download/5vpy.cif").parse(format="mmcif").model_structure()
+
+# 3. Add representations for different components of the structure
+# Show protein as a surface
+structure.component(selector="protein").representation(type="surface")
+
+# Show ligands as ball-and-stick
+structure.component(selector="ligand").representation(type="ball_and_stick")
+
+# 4. Save the state to an MVSJ file
+builder.save_state(destination="5vpy.mvsj")
+
+print("Saved MVSJ file to '5vpy.mvsj'")
