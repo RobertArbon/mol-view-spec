@@ -11,7 +11,9 @@ import molviewspec as mvs
 mmcif_url = lambda x: f"https://files.rcsb.org/download/{x}.cif"
 
 
+# TODO: use streaming IoAdapterPy and cache
 def get_data_container(pdb_id: str) -> DataContainer:
+
     url = mmcif_url(pdb_id)
     filepath_local = os.path.join("./files", f"{pdb_id}.cif")
     urllib.request.urlretrieve(url, filepath_local)
@@ -30,6 +32,42 @@ def get_entity_types_by_id(pdb_id: str) -> Dict[str, str]:
         )
     )
     return type_by_id
+
+
+def get_polymer_metadata(pdb_id: str):
+    dc = get_data_container(pdb_id)
+    scheme = dc.getObj("pdbx_poly_seq_scheme")
+    chain_ids = scheme.getAttributeUniqueValueList("pdb_strand_id")
+    pdb_seq_nums = [
+        scheme.selectValuesWhereConditions(
+            attributeName="pdb_seq_num", conditionsD={"pdb_strand_id": chain_id}
+        )
+        for chain_id in chain_ids
+    ]
+    pdb_seq_nums = [[int(i) for i in seq] for seq in pdb_seq_nums]
+    auth_seq_nums = [
+        scheme.selectValuesWhereConditions(
+            attributeName="auth_seq_num", conditionsD={"pdb_strand_id": chain_id}
+        )
+        for chain_id in chain_ids
+    ]
+    auth_seq_nums = [[int(i) for i in seq] for seq in auth_seq_nums]
+    pdb_mon_id = [
+        scheme.selectValuesWhereConditions(
+            attributeName="pdb_mon_id", conditionsD={"pdb_strand_id": chain_id}
+        )
+        for chain_id in chain_ids
+    ]
+    data = {
+        chain_id: {
+            "auth_seq_num": auth_seq_nums[i],
+            "pdb_seq_nums": pdb_seq_nums[i],
+            "pdb_mon_id": pdb_mon_id[i],
+        }
+        for i, chain_id in enumerate(chain_ids)
+    }
+
+    return data
 
 
 COLORS = cycle(
@@ -88,12 +126,12 @@ def default_snapshot(
     pdb_id: str, title: str | None = None, description: str | None = None
 ):
     """
-    The default view of a structure from the pdb.
+    Creates a deafult snapshot for including in an animation (series of states)
 
     Each polymer entity is represented as cartoon.
     Each branched entity is represented as a carbohydrate.
     All other entities are represented by  ball_and_stick.
-    Colors are different for each entity.
+    Colors are different for each entity except water which is always the same color.
     """
     type_by_id = get_entity_types_by_id(pdb_id)
 
@@ -123,3 +161,62 @@ def default_snapshot(
         transition_duration_ms=DEFAULT_TRANSITION_MS,
     )
     return snapshot
+
+
+class ResiduesSelection:
+    text_label: str
+    label_asym_id: str
+    beg_label_seq_id: int
+    end_label_seq_id: int
+
+    def __lt__(self, obj):
+        len_this = self.end_label_seq_id - self.beg_label_seq_id
+        len_that = obj.end_label_seq_id - obj.beg_label_seq_id
+        return len_this < len_that
+
+def validate_selection(selection: ResiduesSelection, metadata: Dict[str, Dict[str, List[str | int]]]): 
+    chain_id = selection.label_asym_id
+    if not chain_id in metadata.keys(): 
+        raise ValueError(f'Requested chain ID (label_asym_id): {selection.label_asym_id} not available. Available chains are: {",".join(metadata.keys())}')
+    
+    pdb_seq_id_ok = (selection.beg_label_seq_id in metadata[chain_id]['pdb_seq_num']) and (selection.end_label_seq_id in metadata[chain_id]['pdb_seq_num'])
+
+    auth_seq_id_ok = (selection.beg_label_seq_id in metadata[chain_id]['auth_seq_num']) and (selection.end_label_seq_id in metadata[chain_id]['auth_seq_num'])
+
+    if (not pdb_seq_id_ok) and (not auth_seq_id_ok): 
+        raise ValueError('Requestion')
+     
+
+
+def highlight_residues(
+    pdb_id: str,
+    selections_to_hightlight: List[ResiduesSelection],
+    title: str | None = None,
+    description: str | None = None,
+):
+    """
+    Creates a snapshot which highlights different sections of the polymer chains
+    """
+    selections_sorted = sorted(selections_to_hightlight)
+    builder = mvs.create_builder()
+
+    structure = (
+        builder.download(url=mmcif_url(pdb_id))
+        .parse(format="mmcif")
+        .assembly_structure()
+    )
+    type_by_id = get_entity_types_by_id(pdb_id)
+    poly_by_id = {k: v for k, v in type_by_id.items() if v == "polymer"}
+
+    # Add smallest selections first
+    for selections in selections_sorted:
+        
+    # Add representation for whole protein
+    for entity_id, entity_type in poly_by_id.items():
+        color = next(COLORS)
+        (
+            structure.component(selector={"label_entity_id": entity_id})
+            .representation(type=REP_BY_ENTITY_TYPE.get(entity_type, DEFAULT_REP))
+            .color(color=color)
+        )
+
