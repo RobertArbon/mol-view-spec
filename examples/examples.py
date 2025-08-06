@@ -43,6 +43,8 @@ HIGHLIGHT_COLORS = cycle([
 
 ])
 
+WATER_COLOR = "aqua"
+
 REP_BY_ENTITY_TYPE = {
     'polymer': 'cartoon', 
     'non-polymer': 'ball_and_stick', 
@@ -89,10 +91,14 @@ def default_snapshot(pdb_id: str, title: str | None = None,
     structure = builder.download(url=mmcif_url(pdb_id)).parse(format='mmcif').assembly_structure()
 
     for entity_id, entity_type in type_by_id.items():
+        if entity_type == 'water':
+            color = WATER_COLOR
+        else: 
+            color = next(COLORS)
         (
             structure.component(selector={'label_entity_id': entity_id})
             .representation(type=REP_BY_ENTITY_TYPE.get(entity_type, DEFAULT_REP))
-            .color(color=next(COLORS))
+            .color(color=color)
         )
     snapshot = builder.get_snapshot(
         title = title or f"{pdb_id.upper()}",
