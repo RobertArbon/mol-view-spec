@@ -9,7 +9,9 @@ from mmcif.api.PdbxContainers import DataContainer  # type: ignore
 import molviewspec as mvs
 from molviewspec import Snapshot
 
-mmcif_url = lambda x: f"https://files.rcsb.org/download/{x}.cif"
+
+def mmcif_url(pdb_id):
+    return f"https://files.rcsb.org/download/{pdb_id}.cif"
 
 
 COLORS = cycle(
@@ -356,7 +358,7 @@ def highlight_residues(
 ):
     """
     Creates a snapshot which highlights different sections of the polymer chains on a given pdb. The whole polymer is shown
-    translucent, while the highlights are fully opaque. Only the asymmetric unit is shown due to an issue with label positioning.
+    translucent, while the highlights are fully opaque. Only the asymmetric unit is shown due to an issue with label positioning. 
 
     Args:
         pdb_id: PDB identifier
@@ -365,7 +367,7 @@ def highlight_residues(
             {
                 "label_asym_id": str,  # Chain identifier (e.g., "A", "B")
                 "beg_label_seq_id": int,  # Starting residue number (PDB numbering)
-                "end_label_seq_id": int,  # Ending residue number (PDB numbering)
+                "end_label_seq_id": int,  # Ending residue number (PDB numbering). Can be the same as beg_label_seq_id
                 "text_label": str | None,  # Optional text label for the selection
                 "color": str | None,  # Optional color (e.g., "yellow", "red")
             }
@@ -397,7 +399,6 @@ def highlight_residues(
                 structure.component(selector=selection)
                 .representation(type=highlight_representation)
                 .color(color=color)
-                # .opacity(opacity=highlight_opacity)
             )
         label_text = (
             selection.get("text_label")
@@ -444,7 +445,13 @@ def residue_with_interactions(
 
     Args:
         pdb_id: PDB identifier
-        residue_selection: Dictionary with label_asym_id, label_seq_id, optional text_label and color
+        residue_selection: dictionary representing the selection criteria for a single residue: 
+            {
+                "label_asym_id": str,  # Chain identifier (e.g., "A", "B")
+                "label_seq_id": int, # Residue number (pdb numbering) 
+                "text_label": str | None,  # Optional text label for the selection
+                "color": str | None,  # Optional color (e.g., "yellow", "red")
+            } 
         baseline_opacity: Opacity for the background structure
         title: Optional snapshot title
         description: Optional snapshot description
@@ -457,9 +464,7 @@ def residue_with_interactions(
     builder = mvs.create_builder()
 
     structure = (
-        builder.download(url=mmcif_url(pdb_id))
-        .parse(format="mmcif")
-        .model_structure()
+        builder.download(url=mmcif_url(pdb_id)).parse(format="mmcif").model_structure()
     )
 
     for entity_id, entity_type in type_by_id.items():
@@ -482,7 +487,7 @@ def residue_with_interactions(
         color = residue_selection.get("color") or next(HIGHLIGHT_COLORS)
         selection_label = f"{res_name} {residue_selection['label_seq_id']} {residue_selection['label_asym_id']}"
         label_text = residue_selection.get("text_label") or selection_label
- 
+
         (
             structure.component(
                 selector=residue_selector,
