@@ -358,7 +358,7 @@ def highlight_residues(
 ):
     """
     Creates a snapshot which highlights different sections of the polymer chains on a given pdb. The whole polymer is shown
-    translucent, while the highlights are fully opaque. Only the asymmetric unit is shown due to an issue with label positioning. 
+    translucent, while the highlights are fully opaque. Only the asymmetric unit is shown due to an issue with label positioning.
 
     Args:
         pdb_id: PDB identifier
@@ -445,13 +445,13 @@ def residue_with_interactions(
 
     Args:
         pdb_id: PDB identifier
-        residue_selection: dictionary representing the selection criteria for a single residue: 
+        residue_selection: dictionary representing the selection criteria for a single residue:
             {
                 "label_asym_id": str,  # Chain identifier (e.g., "A", "B")
-                "label_seq_id": int, # Residue number (pdb numbering) 
+                "label_seq_id": int, # Residue number (pdb numbering)
                 "text_label": str | None,  # Optional text label for the selection
                 "color": str | None,  # Optional color (e.g., "yellow", "red")
-            } 
+            }
         baseline_opacity: Opacity for the background structure
         title: Optional snapshot title
         description: Optional snapshot description
